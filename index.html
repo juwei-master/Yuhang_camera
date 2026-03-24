@@ -2,56 +2,106 @@
 <html lang="zh-TW">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camera Overlay</title>
+<title>Camera</title>
 
 <style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: black;
-  }
+  body { margin:0; overflow:hidden; background:black; }
 
   video {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    position:fixed;
+    width:100%;
+    height:100%;
+    object-fit:cover;
   }
 
   .overlay {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    pointer-events: none;
+    position:fixed;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    pointer-events:none;
   }
 
+  /* UI */
   .controls {
-    position: fixed;
-    bottom: 30px;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    gap: 20px;
+    position:fixed;
+    bottom:20px;
+    width:100%;
+    display:flex;
+    justify-content:space-around;
+    align-items:center;
   }
 
-  button {
-    padding: 14px 20px;
-    font-size: 16px;
-    background: rgba(0,0,0,0.6);
-    color: white;
-    border: 1px solid white;
-    border-radius: 10px;
+  /* 左：預覽縮圖 */
+  .thumb {
+    width:60px;
+    height:80px;
+    background:#222;
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .thumb img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
   }
 
-  /* 拍照閃光效果 */
+  /* 中：拍照按鈕 */
+  .shutter {
+    width:80px;
+    height:80px;
+    border:4px solid white;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .shutter-inner {
+    width:60px;
+    height:60px;
+    background:white;
+    border-radius:50%;
+    transition:0.1s;
+  }
+  .shutter:active .shutter-inner {
+    transform:scale(0.8);
+  }
+
+  /* 右：切換 */
+  .switch {
+    font-size:28px;
+    color:white;
+  }
+
+  /* 閃光 */
   .flash {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    background: white;
-    opacity: 0;
-    pointer-events: none;
+    position:fixed;
+    width:100%;
+    height:100%;
+    background:white;
+    opacity:0;
+    pointer-events:none;
+    transition:0.2s;
+  }
+
+  /* 預覽畫面 */
+  .preview {
+    position:fixed;
+    width:100%;
+    height:100%;
+    background:black;
+    display:none;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+  }
+  .preview img {
+    max-width:90%;
+    max-height:80%;
+  }
+  .preview button {
+    margin-top:20px;
+    padding:10px 20px;
   }
 </style>
 </head>
@@ -59,83 +109,95 @@
 <body>
 
 <video id="camera" autoplay playsinline></video>
-<img src="Yuhang.png" class="overlay" id="overlay">
+<img src="Yuhang.png" class="overlay">
 
 <div class="controls">
-  <button onclick="switchCamera()">切換鏡頭</button>
-  <button onclick="takePhoto()">拍照</button>
+  <div class="thumb"><img id="thumbImg"></div>
+
+  <div class="shutter" onclick="takePhoto()">
+    <div class="shutter-inner"></div>
+  </div>
+
+  <div class="switch" onclick="switchCamera()">↳↰</div>
 </div>
 
 <div id="flash" class="flash"></div>
+
+<div id="preview" class="preview">
+  <img id="previewImg">
+  <button onclick="closePreview()">返回</button>
+</div>
 
 <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
 let video = document.getElementById('camera');
 let canvas = document.getElementById('canvas');
-let overlay = document.getElementById('overlay');
 let flash = document.getElementById('flash');
+let preview = document.getElementById('preview');
+let previewImg = document.getElementById('previewImg');
+let thumbImg = document.getElementById('thumbImg');
 
-let currentFacing = "environment"; // 預設後鏡頭
+let currentFacing = "environment";
 let stream;
 
-// 啟動相機
+// 🚀 高畫質相機
 async function startCamera() {
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-  }
+  if (stream) stream.getTracks().forEach(t => t.stop());
 
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacing }
-    });
-    video.srcObject = stream;
-  } catch (err) {
-    alert("無法開啟相機");
-  }
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: currentFacing,
+      width: { ideal: 1920 },
+      height: { ideal: 1080 }
+    }
+  });
+
+  video.srcObject = stream;
 }
 
-// 切換鏡頭
+// 🔁 切換鏡頭
 function switchCamera() {
   currentFacing = currentFacing === "environment" ? "user" : "environment";
   startCamera();
 }
 
-// 拍照
+// 📸 拍照
 function takePhoto() {
   const ctx = canvas.getContext('2d');
 
-  // 設定輸出直式比例
   canvas.width = 1080;
   canvas.height = 1920;
 
-  // 畫相機畫面（裁切成直式）
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // 疊上濾鏡
+  const overlay = document.querySelector('.overlay');
   ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
 
-  // 閃光效果
+  // 閃光
   flash.style.opacity = 1;
-  setTimeout(() => {
-    flash.style.opacity = 0;
-  }, 100);
+  setTimeout(()=> flash.style.opacity = 0, 100);
 
-  // 產生時間檔名
+  const data = canvas.toDataURL('image/png');
+
+  // 更新預覽
+  previewImg.src = data;
+  thumbImg.src = data;
+  preview.style.display = "flex";
+
+  // 時間檔名
   const now = new Date();
-  const filename =
-    now.getFullYear() + "-" +
-    String(now.getMonth()+1).padStart(2, '0') + "-" +
-    String(now.getDate()).padStart(2, '0') + "_" +
-    String(now.getHours()).padStart(2, '0') +
-    String(now.getMinutes()).padStart(2, '0') +
-    String(now.getSeconds()).padStart(2, '0') + ".png";
+  const filename = now.getFullYear()+"-"+(now.getMonth()+1)+"-"+now.getDate()+"_"+now.getHours()+now.getMinutes()+now.getSeconds()+".png";
 
-  // 下載圖片
   const link = document.createElement('a');
   link.download = filename;
-  link.href = canvas.toDataURL('image/png');
+  link.href = data;
   link.click();
+}
+
+// 關閉預覽
+function closePreview(){
+  preview.style.display = "none";
 }
 
 // 啟動
