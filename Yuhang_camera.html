@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camera Overlay</title>
+
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+  }
+
+  video {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* 1920x1080 濾鏡圖 */
+  .overlay {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* 保持比例 */
+    pointer-events: none;
+  }
+
+  /* 拍照按鈕 */
+  .btn {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 16px 24px;
+    font-size: 18px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: 1px solid white;
+    border-radius: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<video id="camera" autoplay playsinline></video>
+
+<!-- 放你的 1920x1080 PNG -->
+<img src="overlay.png" class="overlay" id="overlay">
+
+<button class="btn" onclick="takePhoto()">拍照</button>
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+<script>
+const video = document.getElementById('camera');
+const canvas = document.getElementById('canvas');
+const overlay = document.getElementById('overlay');
+
+// 啟動相機
+navigator.mediaDevices.getUserMedia({
+  video: { facingMode: "user" }
+})
+.then(stream => {
+  video.srcObject = stream;
+})
+.catch(() => {
+  alert("請開啟相機權限");
+});
+
+// 拍照
+function takePhoto() {
+  const ctx = canvas.getContext('2d');
+
+  // 設定輸出比例 1920x1080
+  canvas.width = 1920;
+  canvas.height = 1080;
+
+  // 畫相機畫面
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // 疊上濾鏡
+  ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+
+  // 下載
+  const link = document.createElement('a');
+  link.download = 'photo.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+</script>
+
+</body>
+</html>
