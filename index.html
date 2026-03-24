@@ -18,27 +18,40 @@
     object-fit: cover;
   }
 
-  /* 1920x1080 濾鏡圖 */
   .overlay {
     position: fixed;
     width: 100%;
     height: 100%;
-    object-fit: contain; /* 保持比例 */
+    object-fit: contain;
     pointer-events: none;
   }
 
-  /* 拍照按鈕 */
-  .btn {
+  .controls {
     position: fixed;
     bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 16px 24px;
-    font-size: 18px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  button {
+    padding: 14px 20px;
+    font-size: 16px;
     background: rgba(0,0,0,0.6);
     color: white;
     border: 1px solid white;
     border-radius: 10px;
+  }
+
+  /* 拍照閃光效果 */
+  .flash {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
   }
 </style>
 </head>
@@ -46,50 +59,87 @@
 <body>
 
 <video id="camera" autoplay playsinline></video>
-
-<!-- 放你的 1920x1080 PNG -->
 <img src="Yuhang.png" class="overlay" id="overlay">
 
-<button class="btn" onclick="takePhoto()">拍照</button>
+<div class="controls">
+  <button onclick="switchCamera()">切換鏡頭</button>
+  <button onclick="takePhoto()">拍照</button>
+</div>
+
+<div id="flash" class="flash"></div>
 
 <canvas id="canvas" style="display:none;"></canvas>
 
 <script>
-const video = document.getElementById('camera');
-const canvas = document.getElementById('canvas');
-const overlay = document.getElementById('overlay');
+let video = document.getElementById('camera');
+let canvas = document.getElementById('canvas');
+let overlay = document.getElementById('overlay');
+let flash = document.getElementById('flash');
+
+let currentFacing = "environment"; // 預設後鏡頭
+let stream;
 
 // 啟動相機
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: "user" }
-})
-.then(stream => {
-  video.srcObject = stream;
-})
-.catch(() => {
-  alert("請開啟相機權限");
-});
+async function startCamera() {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentFacing }
+    });
+    video.srcObject = stream;
+  } catch (err) {
+    alert("無法開啟相機");
+  }
+}
+
+// 切換鏡頭
+function switchCamera() {
+  currentFacing = currentFacing === "environment" ? "user" : "environment";
+  startCamera();
+}
 
 // 拍照
 function takePhoto() {
   const ctx = canvas.getContext('2d');
 
-  // 設定輸出比例 1920x1080
-  canvas.width = 1920;
-  canvas.height = 1080;
+  // 設定輸出直式比例
+  canvas.width = 1080;
+  canvas.height = 1920;
 
-  // 畫相機畫面
+  // 畫相機畫面（裁切成直式）
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
   // 疊上濾鏡
   ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
 
-  // 下載
+  // 閃光效果
+  flash.style.opacity = 1;
+  setTimeout(() => {
+    flash.style.opacity = 0;
+  }, 100);
+
+  // 產生時間檔名
+  const now = new Date();
+  const filename =
+    now.getFullYear() + "-" +
+    String(now.getMonth()+1).padStart(2, '0') + "-" +
+    String(now.getDate()).padStart(2, '0') + "_" +
+    String(now.getHours()).padStart(2, '0') +
+    String(now.getMinutes()).padStart(2, '0') +
+    String(now.getSeconds()).padStart(2, '0') + ".png";
+
+  // 下載圖片
   const link = document.createElement('a');
-  link.download = 'photo.png';
+  link.download = filename;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
+
+// 啟動
+startCamera();
 </script>
 
 </body>
