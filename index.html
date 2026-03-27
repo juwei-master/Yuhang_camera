@@ -22,7 +22,6 @@ video {
   pointer-events:none;
 }
 
-/* UI */
 .controls {
   position:fixed;
   bottom:20px;
@@ -32,7 +31,6 @@ video {
   align-items:center;
 }
 
-/* 左：預覽 */
 .thumb {
   width:60px;
   height:80px;
@@ -46,7 +44,6 @@ video {
   object-fit:cover;
 }
 
-/* 中：拍照 */
 .shutter {
   width:80px;
   height:80px;
@@ -67,7 +64,6 @@ video {
   transform:scale(0.8);
 }
 
-/* 右：濾鏡 */
 .filter-switch {
   width:60px;
   height:60px;
@@ -80,19 +76,16 @@ video {
   height:100%;
 }
 
-/* ✅ 直式：保留下方（裁掉上方） */
 .vertical-crop {
   object-fit: cover;
   object-position: bottom;
 }
 
-/* ✅ 橫式：水平置中裁切 */
 .horizontal-crop {
   object-fit: cover;
   object-position: center;
 }
 
-/* 閃光 */
 .flash {
   position:fixed;
   width:100%;
@@ -103,7 +96,6 @@ video {
   transition:0.2s;
 }
 
-/* 預覽 */
 .preview {
   position:fixed;
   width:100%;
@@ -150,6 +142,8 @@ video {
 <script>
 const video = document.getElementById('camera');
 const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
 const overlay = document.getElementById('overlay');
 const flash = document.getElementById('flash');
 const preview = document.getElementById('preview');
@@ -195,17 +189,37 @@ navigator.mediaDevices.getUserMedia({
 
 /* 拍照 */
 function takePhoto() {
-  const ctx = canvas.getContext('2d');
+
   const isHorizontal = filters[currentFilter].type === "horizontal";
 
   if (isHorizontal) {
+
+    // 🧩 STEP 1：先拍正常畫面（未旋轉）
+    const tempCanvas = document.createElement('canvas');
+    const tctx = tempCanvas.getContext('2d');
+
+    tempCanvas.width = 1920;
+    tempCanvas.height = 1080;
+
+    tctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+    tctx.drawImage(overlay, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    // 🧩 STEP 2：輸出 canvas（旋轉後）
     canvas.width = 1920;
     canvas.height = 1080;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+    ctx.save();
+
+    // 關鍵修正：旋轉座標
+    ctx.translate(0, canvas.height);
+    ctx.rotate(-Math.PI / 2);
+
+    ctx.drawImage(tempCanvas, 0, 0, canvas.height, canvas.width);
+
+    ctx.restore();
 
   } else {
+
     canvas.width = 1080;
     canvas.height = 1920;
 
