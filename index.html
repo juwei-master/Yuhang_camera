@@ -12,7 +12,6 @@ video {
   width:100%;
   height:100%;
   object-fit:cover;
-  transform: scaleX(-1); /* 自拍鏡像 */
 }
 
 .overlay {
@@ -68,7 +67,7 @@ video {
   transform:scale(0.8);
 }
 
-/* 右：濾鏡切換 */
+/* 右：濾鏡 */
 .filter-switch {
   width:60px;
   height:60px;
@@ -79,7 +78,16 @@ video {
 .filter-switch img {
   width:100%;
   height:100%;
+}
+
+/* 直式裁切 */
+.square {
   object-fit:cover;
+}
+
+/* 橫式保持 */
+.horizontal {
+  object-fit:contain;
 }
 
 /* 閃光 */
@@ -107,9 +115,6 @@ video {
 .preview img {
   max-width:90%;
   max-height:80%;
-}
-.preview button {
-  margin-top:20px;
 }
 </style>
 </head>
@@ -159,22 +164,29 @@ const filters = [
 
 let currentFilter = 0;
 
-/* 初始化濾鏡 */
+/* 更新濾鏡 */
 function updateFilter() {
-  overlay.src = filters[currentFilter].src;
-  filterThumb.src = filters[currentFilter].src;
+  const f = filters[currentFilter];
+  overlay.src = f.src;
+  filterThumb.src = f.src;
+
+  if (f.type === "vertical") {
+    filterThumb.className = "square";
+  } else {
+    filterThumb.className = "horizontal";
+  }
 }
 
-/* 切換濾鏡 */
+/* 切換 */
 function switchFilter() {
   currentFilter = (currentFilter + 1) % filters.length;
   updateFilter();
 }
 
-/* 相機（前鏡頭 + 高畫質） */
+/* 相機（後鏡頭） */
 navigator.mediaDevices.getUserMedia({
   video: {
-    facingMode: "user",
+    facingMode: "environment",
     width: { ideal: 1920 },
     height: { ideal: 1080 }
   }
@@ -185,21 +197,35 @@ navigator.mediaDevices.getUserMedia({
 /* 拍照 */
 function takePhoto() {
   const ctx = canvas.getContext('2d');
-
-  canvas.width = 1080;
-  canvas.height = 1920;
-
   const isHorizontal = filters[currentFilter].type === "horizontal";
 
   if (isHorizontal) {
-    // 逆時針旋轉
+    canvas.width = 1920;
+    canvas.height = 1080;
+
+    // 先正常畫
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+
+    // 再旋轉（拍完才轉）
+    const temp = document.createElement('canvas');
+    temp.width = canvas.width;
+    temp.height = canvas.height;
+    temp.getContext('2d').drawImage(canvas,0,0);
+
+    canvas.width = 1920;
+    canvas.height = 1080;
+
     ctx.save();
     ctx.translate(0, canvas.height);
-    ctx.rotate(-Math.PI / 2);
-    ctx.drawImage(video, 0, 0, canvas.height, canvas.width);
-    ctx.drawImage(overlay, 0, 0, canvas.height, canvas.width);
+    ctx.rotate(-Math.PI/2);
+    ctx.drawImage(temp, 0, 0, canvas.height, canvas.width);
     ctx.restore();
+
   } else {
+    canvas.width = 1080;
+    canvas.height = 1920;
+
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
   }
@@ -228,12 +254,10 @@ function takePhoto() {
   link.click();
 }
 
-/* 關閉預覽 */
 function closePreview(){
   preview.style.display = "none";
 }
 
-/* 初始化 */
 updateFilter();
 </script>
 
