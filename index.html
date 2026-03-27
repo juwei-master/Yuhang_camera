@@ -80,14 +80,16 @@ video {
   height:100%;
 }
 
-/* 直式裁切 */
-.square {
-  object-fit:cover;
+/* ✅ 直式：保留下方（裁掉上方） */
+.vertical-crop {
+  object-fit: cover;
+  object-position: bottom;
 }
 
-/* 橫式保持 */
-.horizontal {
-  object-fit:contain;
+/* ✅ 橫式：水平置中裁切 */
+.horizontal-crop {
+  object-fit: cover;
+  object-position: center;
 }
 
 /* 閃光 */
@@ -155,7 +157,6 @@ const previewImg = document.getElementById('previewImg');
 const thumbImg = document.getElementById('thumbImg');
 const filterThumb = document.getElementById('filterThumb');
 
-/* 濾鏡設定 */
 const filters = [
   { src: "filter1.png", type: "vertical" },
   { src: "filter2.png", type: "vertical" },
@@ -164,26 +165,24 @@ const filters = [
 
 let currentFilter = 0;
 
-/* 更新濾鏡 */
 function updateFilter() {
   const f = filters[currentFilter];
   overlay.src = f.src;
   filterThumb.src = f.src;
 
   if (f.type === "vertical") {
-    filterThumb.className = "square";
+    filterThumb.className = "vertical-crop";
   } else {
-    filterThumb.className = "horizontal";
+    filterThumb.className = "horizontal-crop";
   }
 }
 
-/* 切換 */
 function switchFilter() {
   currentFilter = (currentFilter + 1) % filters.length;
   updateFilter();
 }
 
-/* 相機（後鏡頭） */
+/* 後鏡頭 */
 navigator.mediaDevices.getUserMedia({
   video: {
     facingMode: "environment",
@@ -203,24 +202,8 @@ function takePhoto() {
     canvas.width = 1920;
     canvas.height = 1080;
 
-    // 先正常畫
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
-
-    // 再旋轉（拍完才轉）
-    const temp = document.createElement('canvas');
-    temp.width = canvas.width;
-    temp.height = canvas.height;
-    temp.getContext('2d').drawImage(canvas,0,0);
-
-    canvas.width = 1920;
-    canvas.height = 1080;
-
-    ctx.save();
-    ctx.translate(0, canvas.height);
-    ctx.rotate(-Math.PI/2);
-    ctx.drawImage(temp, 0, 0, canvas.height, canvas.width);
-    ctx.restore();
 
   } else {
     canvas.width = 1080;
