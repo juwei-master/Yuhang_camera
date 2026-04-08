@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camera Filter Stable</title>
+<title>Camera Pro</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; }
@@ -12,6 +12,7 @@ video {
   width:100%;
   height:100%;
   object-fit:cover;
+  image-rendering:auto;
 }
 
 .overlay {
@@ -76,7 +77,7 @@ video {
   height:100%;
 }
 
-/* 裁切規則 */
+/* 濾鏡縮圖裁切 */
 .vertical-crop {
   object-fit: cover;
   object-position: bottom;
@@ -151,6 +152,7 @@ const previewImg = document.getElementById('previewImg');
 const thumbImg = document.getElementById('thumbImg');
 const filterThumb = document.getElementById('filterThumb');
 
+/* 濾鏡 */
 const filters = [
   { src: "filter1.png", type: "vertical" },
   { src: "filter2.png", type: "vertical" },
@@ -164,9 +166,8 @@ function updateFilter() {
   overlay.src = f.src;
   filterThumb.src = f.src;
 
-  filterThumb.className = f.type === "vertical"
-    ? "vertical-crop"
-    : "horizontal-crop";
+  filterThumb.className =
+    f.type === "vertical" ? "vertical-crop" : "horizontal-crop";
 }
 
 function switchFilter() {
@@ -174,27 +175,41 @@ function switchFilter() {
   updateFilter();
 }
 
-/* 🚀 鎖死相機（避免方向干擾） */
-navigator.mediaDevices.getUserMedia({
-  video: {
-    facingMode: "environment"
-  }
-}).then(stream => {
-  video.srcObject = stream;
-});
+/* 🚀 高畫質相機 */
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920, max: 3840 },
+        height: { ideal: 1080, max: 2160 },
+        aspectRatio: { ideal: 16/9 }
+      }
+    });
+    video.srcObject = stream;
 
-/* 🎯 核心：比例裁切函數（不變形） */
-function getCrop(vw, vh, targetRatio) {
+  } catch (err) {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+    video.srcObject = stream;
+  }
+}
+
+startCamera();
+
+/* 裁切函數 */
+function getCrop(vw, vh, ratio) {
   let sw, sh, sx, sy;
 
-  if (vw / vh > targetRatio) {
+  if (vw / vh > ratio) {
     sh = vh;
-    sw = vh * targetRatio;
+    sw = vh * ratio;
     sx = (vw - sw) / 2;
     sy = 0;
   } else {
     sw = vw;
-    sh = vw / targetRatio;
+    sh = vw / ratio;
     sx = 0;
     sy = (vh - sh) / 2;
   }
@@ -208,6 +223,9 @@ function takePhoto() {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   const isHorizontal = filters[currentFilter].type === "horizontal";
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   if (isHorizontal) {
 
