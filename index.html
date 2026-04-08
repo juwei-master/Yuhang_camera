@@ -76,6 +76,16 @@ video {
   height:100%;
 }
 
+.vertical-crop {
+  object-fit: cover;
+  object-position: bottom;
+}
+
+.horizontal-crop {
+  object-fit: cover;
+  object-position: center;
+}
+
 .flash {
   position:fixed;
   width:100%;
@@ -153,6 +163,12 @@ function updateFilter() {
   const f = filters[currentFilter];
   overlay.src = f.src;
   filterThumb.src = f.src;
+
+  if (f.type === "vertical") {
+    filterThumb.className = "vertical-crop";
+  } else {
+    filterThumb.className = "horizontal-crop";
+  }
 }
 
 function switchFilter() {
@@ -160,13 +176,12 @@ function switchFilter() {
   updateFilter();
 }
 
-/* 相機初始化 */
+/* 後鏡頭 */
 navigator.mediaDevices.getUserMedia({
   video: {
-    facingMode: { ideal: "environment" },
-    aspectRatio: { ideal: 16/9 },
-    width: { ideal: 4096 },
-    height: { ideal: 2160 }
+    facingMode: "environment",
+    width: { ideal: 1920 },
+    height: { ideal: 1080 }
   }
 }).then(stream => {
   video.srcObject = stream;
@@ -175,35 +190,31 @@ navigator.mediaDevices.getUserMedia({
 /* 拍照 */
 function takePhoto() {
 
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
   const isHorizontal = filters[currentFilter].type === "horizontal";
 
   if (isHorizontal) {
 
-    // 🧩 STEP1：先畫「原始畫面 + 濾鏡」
+    // 🧩 STEP 1：先拍正常畫面（未旋轉）
     const tempCanvas = document.createElement('canvas');
     const tctx = tempCanvas.getContext('2d');
 
-    tempCanvas.width = vw;
-    tempCanvas.height = vh;
+    tempCanvas.width = 1920;
+    tempCanvas.height = 1080;
 
-    // 不裁切、不拉伸
-    tctx.drawImage(video, 0, 0, vw, vh);
-    tctx.drawImage(overlay, 0, 0, vw, vh);
+    tctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+    tctx.drawImage(overlay, 0, 0, tempCanvas.width, tempCanvas.height);
 
-    // 🧩 STEP2：旋轉輸出
+    // 🧩 STEP 2：輸出 canvas（旋轉後）
     canvas.width = 1920;
     canvas.height = 1080;
 
     ctx.save();
 
-    // 逆時針90°
+    // 關鍵修正：旋轉座標
     ctx.translate(0, canvas.height);
     ctx.rotate(-Math.PI / 2);
 
-    // 這裡用 cover 縮放進去（但不是裁切來源）
-    ctx.drawImage(tempCanvas, 0, 0, vh, vw);
+    ctx.drawImage(tempCanvas, 0, 0, canvas.height, canvas.width);
 
     ctx.restore();
 
@@ -225,8 +236,17 @@ function takePhoto() {
   thumbImg.src = data;
   preview.style.display = "flex";
 
+  const now = new Date();
+  const filename =
+    now.getFullYear()+"-"+
+    String(now.getMonth()+1).padStart(2,'0')+"-"+
+    String(now.getDate()).padStart(2,'0')+"_"+
+    String(now.getHours()).padStart(2,'0')+
+    String(now.getMinutes()).padStart(2,'0')+
+    String(now.getSeconds()).padStart(2,'0')+".png";
+
   const link = document.createElement('a');
-  link.download = "photo.png";
+  link.download = filename;
   link.href = data;
   link.click();
 }
