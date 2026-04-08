@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camera Filter</title>
+<title>Camera Filter Stable</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; }
@@ -76,11 +76,11 @@ video {
   height:100%;
 }
 
+/* 裁切規則 */
 .vertical-crop {
   object-fit: cover;
   object-position: bottom;
 }
-
 .horizontal-crop {
   object-fit: cover;
   object-position: center;
@@ -115,7 +115,7 @@ video {
 
 <body>
 
-<video id="camera" autoplay playsinline></video>
+<video id="camera" autoplay playsinline muted></video>
 <img id="overlay" class="overlay">
 
 <div class="controls">
@@ -164,11 +164,9 @@ function updateFilter() {
   overlay.src = f.src;
   filterThumb.src = f.src;
 
-  if (f.type === "vertical") {
-    filterThumb.className = "vertical-crop";
-  } else {
-    filterThumb.className = "horizontal-crop";
-  }
+  filterThumb.className = f.type === "vertical"
+    ? "vertical-crop"
+    : "horizontal-crop";
 }
 
 function switchFilter() {
@@ -176,55 +174,79 @@ function switchFilter() {
   updateFilter();
 }
 
-/* 後鏡頭 */
+/* 🚀 鎖死相機（避免方向干擾） */
 navigator.mediaDevices.getUserMedia({
   video: {
-    facingMode: "environment",
-    width: { ideal: 1920 },
-    height: { ideal: 1080 }
+    facingMode: "environment"
   }
 }).then(stream => {
   video.srcObject = stream;
 });
 
-/* 拍照 */
+/* 🎯 核心：比例裁切函數（不變形） */
+function getCrop(vw, vh, targetRatio) {
+  let sw, sh, sx, sy;
+
+  if (vw / vh > targetRatio) {
+    sh = vh;
+    sw = vh * targetRatio;
+    sx = (vw - sw) / 2;
+    sy = 0;
+  } else {
+    sw = vw;
+    sh = vw / targetRatio;
+    sx = 0;
+    sy = (vh - sh) / 2;
+  }
+
+  return { sx, sy, sw, sh };
+}
+
+/* 📸 拍照 */
 function takePhoto() {
 
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
   const isHorizontal = filters[currentFilter].type === "horizontal";
 
   if (isHorizontal) {
 
-    // 🧩 STEP 1：先拍正常畫面（未旋轉）
-    const tempCanvas = document.createElement('canvas');
-    const tctx = tempCanvas.getContext('2d');
+    const crop = getCrop(vw, vh, 16/9);
 
-    tempCanvas.width = 1920;
-    tempCanvas.height = 1080;
+    const temp = document.createElement('canvas');
+    temp.width = 1920;
+    temp.height = 1080;
+    const tctx = temp.getContext('2d');
 
-    tctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
-    tctx.drawImage(overlay, 0, 0, tempCanvas.width, tempCanvas.height);
+    tctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, 1920, 1080);
+    tctx.drawImage(overlay, 0, 0, 1920, 1080);
 
-    // 🧩 STEP 2：輸出 canvas（旋轉後）
     canvas.width = 1920;
     canvas.height = 1080;
 
     ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.rotate(-Math.PI/2);
 
-    // 關鍵修正：旋轉座標
-    ctx.translate(0, canvas.height);
-    ctx.rotate(-Math.PI / 2);
-
-    ctx.drawImage(tempCanvas, 0, 0, canvas.height, canvas.width);
+    ctx.drawImage(
+      temp,
+      -canvas.height/2,
+      -canvas.width/2,
+      canvas.height,
+      canvas.width
+    );
 
     ctx.restore();
 
   } else {
 
+    const crop = getCrop(vw, vh, 9/16);
+
     canvas.width = 1080;
     canvas.height = 1920;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, 1080, 1920);
+    ctx.drawImage(overlay, 0, 0, 1080, 1920);
   }
 
   flash.style.opacity = 1;
